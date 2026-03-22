@@ -1,0 +1,1149 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>像素阵列图片生成器 (PNG / BMP)</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --bg: linear-gradient(160deg, #f4f7fb 0%, #eef3f8 52%, #f7f2ea 100%);
+      --panel: rgba(255, 255, 255, 0.82);
+      --panel-strong: rgba(255, 255, 255, 0.95);
+      --border: rgba(112, 136, 164, 0.22);
+      --text: #243347;
+      --muted: #607289;
+      --accent: #2667ff;
+      --accent-soft: rgba(38, 103, 255, 0.14);
+      --accent-strong: #184dc8;
+      --shadow: 0 18px 40px rgba(58, 76, 98, 0.12);
+      --shadow-soft: 0 8px 20px rgba(58, 76, 98, 0.08);
+      --radius-lg: 18px;
+      --radius-md: 12px;
+      --radius-sm: 10px;
+      --input-bg: rgba(248, 251, 255, 0.95);
+      --checker-a: #ffffff;
+      --checker-b: #edf2f8;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    html,
+    body {
+      margin: 0;
+      height: 100%;
+    }
+
+    body {
+      font-family: "Microsoft YaHei", "PingFang SC", "Segoe UI", sans-serif;
+      line-height: 1.5;
+      color: var(--text);
+      background: var(--bg);
+      padding: 10px;
+      overflow: hidden;
+    }
+
+    .page {
+      max-width: 1500px;
+      margin: 0 auto;
+      height: calc(100vh - 20px);
+      display: grid;
+      grid-template-rows: auto minmax(0, 1fr);
+      gap: 10px;
+    }
+
+    .hero {
+      margin-bottom: 0;
+      padding: 12px 16px;
+      border: 1px solid rgba(255, 255, 255, 0.5);
+      border-radius: 24px;
+      background:
+        radial-gradient(circle at top right, rgba(38, 103, 255, 0.12), transparent 34%),
+        radial-gradient(circle at left bottom, rgba(255, 153, 51, 0.12), transparent 30%),
+        rgba(255, 255, 255, 0.72);
+      backdrop-filter: blur(16px);
+      box-shadow: var(--shadow);
+    }
+
+    h1 {
+      margin: 0;
+      font-size: clamp(20px, 2.4vw, 28px);
+      line-height: 1.1;
+      letter-spacing: 0.02em;
+    }
+
+    .hero p {
+      margin: 4px 0 0;
+      max-width: 920px;
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    .layout {
+      display: grid;
+      grid-template-columns: minmax(380px, 460px) minmax(320px, 1fr);
+      gap: 12px;
+      align-items: stretch;
+      min-height: 0;
+      height: 100%;
+    }
+
+    .left-column,
+    .right-column {
+      min-height: 0;
+    }
+
+    .left-column {
+      display: grid;
+      grid-template-rows: minmax(220px, 1.1fr) minmax(180px, 1fr) minmax(140px, 0.74fr);
+      gap: 12px;
+    }
+
+    .panel {
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      padding: 12px;
+      background: var(--panel);
+      backdrop-filter: blur(12px);
+      box-shadow: var(--shadow-soft);
+      min-height: 0;
+    }
+
+    .stack-panel {
+      display: grid;
+      grid-template-rows: auto minmax(0, 1fr);
+      gap: 8px;
+    }
+
+    .panel-content {
+      min-height: 0;
+      overflow: auto;
+    }
+
+    .panel:last-child {
+      margin-bottom: 0;
+    }
+
+    .panel-title {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 0;
+      font-size: 15px;
+      font-weight: 700;
+    }
+
+    .panel-title::before {
+      content: "";
+      width: 8px;
+      height: 8px;
+      border-radius: 999px;
+      background: linear-gradient(135deg, #2667ff, #5b90ff);
+      box-shadow: 0 0 0 6px var(--accent-soft);
+      flex: 0 0 auto;
+    }
+
+    .hint {
+      margin-top: 2px;
+      color: var(--muted);
+      font-size: 11px;
+    }
+
+    .flex-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      align-items: center;
+    }
+
+    .control-bar {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      align-items: end;
+      justify-content: space-between;
+      margin-top: 8px;
+      padding: 10px;
+      border: 1px solid rgba(112, 136, 164, 0.16);
+      border-radius: 14px;
+      background: rgba(255, 255, 255, 0.64);
+    }
+
+    .control-cluster {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      align-items: center;
+    }
+
+    .field-group {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(110px, 1fr));
+      gap: 10px;
+      margin-top: 8px;
+    }
+
+    label,
+    .inline-label {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      color: var(--text);
+      font-size: 13px;
+      font-weight: 500;
+    }
+
+    input[type="number"] {
+      width: 84px;
+      min-width: 0;
+      padding: 6px 8px;
+      border: 1px solid rgba(112, 136, 164, 0.3);
+      border-radius: 10px;
+      background: var(--input-bg);
+      color: var(--text);
+      font-size: 13px;
+      outline: none;
+      transition: border-color 0.18s ease, box-shadow 0.18s ease, transform 0.18s ease;
+    }
+
+    input[type="number"]:focus,
+    input[type="radio"]:focus-visible,
+    button:focus-visible,
+    a:focus-visible {
+      outline: none;
+      border-color: rgba(38, 103, 255, 0.55);
+      box-shadow: 0 0 0 4px rgba(38, 103, 255, 0.12);
+    }
+
+    button {
+      padding: 7px 11px;
+      border-radius: 12px;
+      border: 1px solid rgba(38, 103, 255, 0.15);
+      background: linear-gradient(180deg, rgba(255, 255, 255, 0.96), rgba(239, 245, 255, 0.96));
+      color: var(--text);
+      cursor: pointer;
+      font-size: 13px;
+      font-weight: 600;
+      transition: transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease;
+      box-shadow: 0 6px 14px rgba(58, 76, 98, 0.06);
+    }
+
+    button:hover {
+      transform: translateY(-1px);
+      border-color: rgba(38, 103, 255, 0.28);
+      box-shadow: 0 10px 18px rgba(58, 76, 98, 0.1);
+    }
+
+    button:active {
+      transform: translateY(0);
+    }
+
+    .primary-btn {
+      background: linear-gradient(135deg, var(--accent), #4c8bff);
+      color: #fff;
+      border-color: rgba(38, 103, 255, 0.5);
+    }
+
+    .secondary-btn {
+      background: rgba(255, 255, 255, 0.72);
+    }
+
+    .radio-group {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      margin-top: 10px;
+    }
+
+    .radio-chip {
+      padding: 8px 12px;
+      border-radius: 999px;
+      border: 1px solid rgba(112, 136, 164, 0.24);
+      background: rgba(255, 255, 255, 0.68);
+      transition: border-color 0.18s ease, background 0.18s ease;
+    }
+
+    .radio-chip:has(input:checked) {
+      border-color: rgba(38, 103, 255, 0.4);
+      background: rgba(38, 103, 255, 0.1);
+    }
+
+    #gridContainer {
+      display: inline-grid;
+      gap: 2px;
+      margin-top: 8px;
+      padding: 8px;
+      border: 1px solid rgba(112, 136, 164, 0.22);
+      border-radius: 16px;
+      background:
+        linear-gradient(45deg, rgba(255, 255, 255, 0.56), rgba(247, 250, 255, 0.8)),
+        linear-gradient(90deg, var(--checker-a) 25%, var(--checker-b) 25%, var(--checker-b) 50%, var(--checker-a) 50%, var(--checker-a) 75%, var(--checker-b) 75%, var(--checker-b) 100%);
+      background-size: auto, 24px 24px;
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.9);
+      user-select: none;
+      max-width: 100%;
+      overflow: auto;
+    }
+
+    .pixel-cell {
+      width: 18px;
+      height: 18px;
+      border-radius: 5px;
+      border: 1px solid rgba(36, 51, 71, 0.1);
+      cursor: pointer;
+      transition: transform 0.12s ease, box-shadow 0.12s ease, border-color 0.12s ease;
+    }
+
+    .pixel-cell:hover {
+      transform: translateY(-1px);
+      border-color: rgba(36, 51, 71, 0.28);
+      box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.9), 0 8px 12px rgba(58, 76, 98, 0.12);
+    }
+
+    #colorList {
+      display: grid;
+      gap: 6px;
+      min-height: 0;
+      height: 100%;
+      overflow-y: auto;
+      padding-right: 4px;
+    }
+
+    .color-row {
+      display: grid;
+      grid-template-columns: 88px repeat(3, minmax(0, 1fr)) 28px;
+      gap: 6px;
+      align-items: center;
+      padding: 6px 8px;
+      border: 1px solid rgba(112, 136, 164, 0.16);
+      border-radius: 14px;
+      background: rgba(255, 255, 255, 0.74);
+      transition: border-color 0.16s ease, box-shadow 0.16s ease, background 0.16s ease;
+    }
+
+    .color-row.active {
+      border-color: rgba(38, 103, 255, 0.4);
+      background: rgba(38, 103, 255, 0.08);
+      box-shadow: inset 0 0 0 1px rgba(38, 103, 255, 0.08);
+    }
+
+    .color-preview {
+      width: 24px;
+      height: 24px;
+      border-radius: 8px;
+      border: 1px solid rgba(36, 51, 71, 0.12);
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.75);
+    }
+
+    .color-channel {
+      display: flex;
+      align-items: center;
+      gap: 3px;
+      min-width: 0;
+      font-size: 12px;
+      color: var(--muted);
+    }
+
+    .color-channel input {
+      width: 100%;
+    }
+
+    .result-panel {
+      background: var(--panel-strong);
+      height: 100%;
+      display: grid;
+      grid-template-rows: auto auto minmax(0, 1fr);
+    }
+
+    .result-head {
+      display: grid;
+      gap: 8px;
+    }
+
+    .preview-summary {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      padding: 10px 12px;
+      border: 1px solid rgba(112, 136, 164, 0.18);
+      border-radius: 16px;
+      background: linear-gradient(180deg, rgba(255, 255, 255, 0.9), rgba(247, 250, 255, 0.92));
+    }
+
+    .preview-meta {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      align-items: center;
+    }
+
+    .meta-chip {
+      display: inline-flex;
+      align-items: center;
+      min-height: 30px;
+      padding: 6px 10px;
+      border-radius: 999px;
+      background: rgba(38, 103, 255, 0.08);
+      color: var(--text);
+      font-size: 12px;
+      font-weight: 600;
+    }
+
+    .meta-chip.subtle {
+      background: rgba(112, 136, 164, 0.1);
+      color: var(--muted);
+      font-weight: 500;
+    }
+
+    .workspace-panel {
+      display: grid;
+      gap: 8px;
+    }
+
+    .toolbar-card {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: space-between;
+      gap: 10px;
+      align-items: center;
+      padding: 8px 10px;
+      border: 1px solid rgba(112, 136, 164, 0.18);
+      border-radius: 16px;
+      background: rgba(255, 255, 255, 0.72);
+    }
+
+    .toolbar-meta {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      align-items: center;
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    .current-color-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 8px;
+      border-radius: 999px;
+      background: rgba(38, 103, 255, 0.08);
+      color: var(--text);
+      font-weight: 600;
+    }
+
+    .current-color-dot {
+      width: 16px;
+      height: 16px;
+      border-radius: 999px;
+      border: 1px solid rgba(36, 51, 71, 0.14);
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.75);
+      background: #000;
+    }
+
+    .compact-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      align-items: center;
+    }
+
+    .preview-toolbar {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: space-between;
+      align-items: center;
+      gap: 10px;
+      margin: 0;
+    }
+
+    #downloadLink {
+      display: none;
+      align-items: center;
+      justify-content: center;
+      min-height: 38px;
+      padding: 8px 14px;
+      border-radius: 12px;
+      background: rgba(38, 103, 255, 0.1);
+      color: var(--accent-strong);
+      text-decoration: none;
+      font-size: 13px;
+      font-weight: 700;
+      transition: background 0.18s ease, transform 0.18s ease;
+    }
+
+    #downloadLink:hover {
+      background: rgba(38, 103, 255, 0.16);
+      transform: translateY(-1px);
+    }
+
+    .canvas-wrap {
+      display: grid;
+      grid-template-rows: auto minmax(0, 1fr);
+      align-items: stretch;
+      min-height: 0;
+      height: 100%;
+      padding: 12px;
+      border: 1px solid rgba(112, 136, 164, 0.18);
+      border-radius: 18px;
+      background:
+        linear-gradient(45deg, rgba(255, 255, 255, 0.5), rgba(246, 250, 255, 0.85)),
+        linear-gradient(90deg, var(--checker-a) 25%, var(--checker-b) 25%, var(--checker-b) 50%, var(--checker-a) 50%, var(--checker-a) 75%, var(--checker-b) 75%, var(--checker-b) 100%);
+      background-size: auto, 28px 28px;
+    }
+
+    .preview-stage {
+      display: grid;
+      align-items: start;
+      justify-items: center;
+      min-height: 0;
+      overflow: auto;
+      padding: 8px;
+      border-radius: 14px;
+      background: rgba(255, 255, 255, 0.42);
+      box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.55);
+    }
+
+    .preview-stage.empty {
+      align-items: center;
+    }
+
+    .preview-placeholder {
+      display: grid;
+      gap: 8px;
+      justify-items: center;
+      padding: 24px 18px;
+      color: var(--muted);
+      text-align: center;
+    }
+
+    .preview-placeholder strong {
+      color: var(--text);
+      font-size: 14px;
+    }
+
+    #canvas {
+      max-width: 100%;
+      max-height: none;
+      border: 1px solid rgba(112, 136, 164, 0.22);
+      border-radius: 12px;
+      background: #fff;
+      image-rendering: pixelated;
+      box-shadow: 0 20px 30px rgba(36, 51, 71, 0.12);
+      display: none;
+    }
+
+    .stats {
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    @media (max-width: 980px) {
+      body {
+        padding: 16px;
+        overflow: auto;
+      }
+
+      .layout {
+        grid-template-columns: 1fr;
+      }
+
+      .page {
+        height: auto;
+      }
+
+      .left-column {
+        grid-template-rows: auto auto auto;
+      }
+    }
+
+    @media (max-width: 620px) {
+      .panel {
+        padding: 14px;
+      }
+
+      .color-row {
+        grid-template-columns: 1fr;
+      }
+
+      .field-group {
+        grid-template-columns: 1fr;
+      }
+
+      .preview-toolbar {
+        align-items: stretch;
+      }
+
+      .control-bar,
+      .toolbar-card {
+        padding: 10px;
+      }
+
+      body {
+        padding: 12px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <header class="hero">
+      <h1>像素阵列图片生成器</h1>
+      <p>
+        使用左侧预览网格绘制一个基础图案，再将它以平铺方式扩展为 PNG 或 BMP 图片。
+      </p>
+    </header>
+
+    <div class="layout">
+      <div class="left-column">
+        <section class="panel stack-panel">
+          <div class="panel-title">1. 预览网格设置</div>
+          <div class="panel-content">
+            <div class="control-bar">
+              <div class="control-cluster">
+                <label>
+                  行数
+                  <input id="gridRowsInput" type="number" min="1" max="64" value="2" />
+                </label>
+                <label>
+                  列数
+                  <input id="gridColsInput" type="number" min="1" max="64" value="4" />
+                </label>
+              </div>
+              <div class="compact-actions">
+                <button id="applyGridSizeBtn" class="primary-btn">应用网格尺寸</button>
+                <button id="clearGridBtn" class="secondary-btn">清空网格</button>
+              </div>
+            </div>
+            <div class="hint">
+              点击下方网格中的小方块即可为每个像素上色。
+            </div>
+            <div class="workspace-panel">
+              <div class="toolbar-card">
+                <div class="toolbar-meta">
+                  <div class="current-color-chip">
+                    <span class="current-color-dot" id="currentColorDot"></span>
+                    <span id="currentColorLabel">当前画笔：颜色 0</span>
+                  </div>
+                  <div id="gridSizeLabel">网格尺寸：2 × 4</div>
+                </div>
+                <div class="stats">先选颜色，再点网格即可绘制。</div>
+              </div>
+              <div id="gridContainer" aria-label="像素编辑网格"></div>
+            </div>
+          </div>
+        </section>
+
+        <section class="panel stack-panel">
+          <div class="panel-title">2. 颜色预设与画笔选择</div>
+          <div class="panel-content">
+            <div id="colorList"></div>
+          </div>
+        </section>
+
+        <section class="panel stack-panel">
+          <div class="panel-title">3. 输出图片设置</div>
+          <div class="panel-content">
+            <div class="field-group">
+              <label>
+                输出宽度 (px)
+                <input id="outWidth" type="number" min="1" value="256" />
+              </label>
+              <label>
+                输出高度 (px)
+                <input id="outHeight" type="number" min="1" value="256" />
+              </label>
+            </div>
+            <div class="radio-group">
+              <label class="radio-chip">
+                <input type="radio" name="outFormat" value="png" checked />
+                PNG
+              </label>
+              <label class="radio-chip">
+                <input type="radio" name="outFormat" value="bmp" />
+                BMP
+              </label>
+            </div>
+            <div class="hint">
+              生成逻辑不变：按预览网格的行列图案进行平铺，x 对列数取模，y 对行数取模。
+            </div>
+            <button id="generateBtn" class="primary-btn" style="margin-top: 8px;">生成图片</button>
+          </div>
+        </section>
+      </div>
+
+      <div class="right-column">
+        <section class="panel result-panel">
+          <div class="result-head">
+            <div class="panel-title">4. 生成结果预览</div>
+            <div class="hint">
+              点击“生成图片”后，可在下方查看结果并下载 PNG / BMP 文件。
+            </div>
+          </div>
+          <div class="preview-summary">
+            <div class="preview-meta">
+              <div class="meta-chip" id="previewStats">当前网格：2 行 × 4 列</div>
+              <div class="meta-chip subtle" id="previewSize">输出尺寸：未生成</div>
+            </div>
+            <div class="preview-toolbar">
+              <a id="downloadLink">下载图片</a>
+            </div>
+          </div>
+          <div class="canvas-wrap">
+            <div class="stats" id="previewHint">预览按比例适配显示，大尺寸图片不会强行撑满整个面板。</div>
+            <div class="preview-stage empty" id="previewStage">
+              <div class="preview-placeholder" id="previewPlaceholder">
+                <strong>等待生成预览</strong>
+                <div>生成后会在这里按比例展示图片，便于快速检查平铺效果。</div>
+              </div>
+              <canvas id="canvas"></canvas>
+            </div>
+          </div>
+        </section>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const PALETTE_SIZE = 10;
+    const DEFAULT_COLORS = [
+      { r: 0, g: 0, b: 0 },
+      { r: 255, g: 255, b: 255 },
+      { r: 255, g: 0, b: 0 },
+      { r: 0, g: 255, b: 0 },
+      { r: 0, g: 0, b: 255 },
+      { r: 255, g: 255, b: 0 },
+      { r: 255, g: 0, b: 255 },
+      { r: 0, g: 255, b: 255 },
+      { r: 128, g: 128, b: 128 },
+      { r: 255, g: 128, b: 0 }
+    ];
+
+    const state = {
+      currentColorIndex: 0,
+      gridRows: 2,
+      gridCols: 4,
+      gridPattern: new Uint8Array(8),
+      palette: DEFAULT_COLORS.map((color) => ({ ...color })),
+      objectUrl: ""
+    };
+
+    const elements = {
+      gridContainer: document.getElementById("gridContainer"),
+      colorList: document.getElementById("colorList"),
+      canvas: document.getElementById("canvas"),
+      downloadLink: document.getElementById("downloadLink"),
+      previewStats: document.getElementById("previewStats"),
+      previewSize: document.getElementById("previewSize"),
+      previewHint: document.getElementById("previewHint"),
+      previewStage: document.getElementById("previewStage"),
+      previewPlaceholder: document.getElementById("previewPlaceholder"),
+      currentColorDot: document.getElementById("currentColorDot"),
+      currentColorLabel: document.getElementById("currentColorLabel"),
+      gridSizeLabel: document.getElementById("gridSizeLabel"),
+      gridRowsInput: document.getElementById("gridRowsInput"),
+      gridColsInput: document.getElementById("gridColsInput"),
+      outWidth: document.getElementById("outWidth"),
+      outHeight: document.getElementById("outHeight"),
+      applyGridSizeBtn: document.getElementById("applyGridSizeBtn"),
+      clearGridBtn: document.getElementById("clearGridBtn"),
+      generateBtn: document.getElementById("generateBtn")
+    };
+
+    const paletteInputs = [];
+    const palettePreviews = [];
+    let gridCells = [];
+
+    function clampColor(value) {
+      const parsedValue = Number.parseInt(value, 10);
+      if (Number.isNaN(parsedValue)) return 0;
+      return Math.max(0, Math.min(255, parsedValue));
+    }
+
+    function syncPaletteFromInputs() {
+      for (let i = 0; i < PALETTE_SIZE; i++) {
+        const channels = paletteInputs[i];
+        state.palette[i].r = clampColor(channels.r.value);
+        state.palette[i].g = clampColor(channels.g.value);
+        state.palette[i].b = clampColor(channels.b.value);
+      }
+    }
+
+    function colorToCss(color) {
+      return `rgb(${color.r}, ${color.g}, ${color.b})`;
+    }
+
+    function updateColorPreviewAndGrid() {
+      syncPaletteFromInputs();
+
+      for (let i = 0; i < PALETTE_SIZE; i++) {
+        palettePreviews[i].style.backgroundColor = colorToCss(state.palette[i]);
+      }
+
+      for (let i = 0; i < gridCells.length; i++) {
+        gridCells[i].style.backgroundColor = colorToCss(state.palette[state.gridPattern[i]] || state.palette[0]);
+      }
+
+      updateCurrentColorIndicator();
+    }
+
+    function updatePreviewStats() {
+      elements.previewStats.textContent = `当前网格：${state.gridRows} 行 × ${state.gridCols} 列`;
+      elements.gridSizeLabel.textContent = `网格尺寸：${state.gridRows} × ${state.gridCols}`;
+    }
+
+    function updatePreviewSize(width, height) {
+      if (!width || !height) {
+        elements.previewSize.textContent = "输出尺寸：未生成";
+        return;
+      }
+      elements.previewSize.textContent = `输出尺寸：${width} × ${height}px`;
+    }
+
+    function updateCanvasPresentation(width, height) {
+      const stage = elements.previewStage;
+      const canvas = elements.canvas;
+      const stageWidth = Math.max(stage.clientWidth - 16, 160);
+      const stageHeight = Math.max(stage.clientHeight - 16, 160);
+      const scale = Math.min(stageWidth / width, stageHeight / height, 1);
+      canvas.style.width = `${Math.max(1, Math.floor(width * scale))}px`;
+      canvas.style.height = `${Math.max(1, Math.floor(height * scale))}px`;
+      elements.previewHint.textContent = scale < 1
+        ? `预览已按 ${Math.round(scale * 100)}% 比例缩放显示，下载内容保持原始分辨率。`
+        : "预览以原始比例显示，下载内容保持原始分辨率。";
+    }
+
+    function showPreviewPlaceholder() {
+      elements.previewStage.classList.add("empty");
+      elements.previewPlaceholder.style.display = "grid";
+      elements.canvas.style.display = "none";
+      updatePreviewSize(0, 0);
+      elements.previewHint.textContent = "预览按比例适配显示，大尺寸图片不会强行撑满整个面板。";
+    }
+
+    function showPreviewCanvas(width, height) {
+      elements.previewStage.classList.remove("empty");
+      elements.previewPlaceholder.style.display = "none";
+      elements.canvas.style.display = "block";
+      updatePreviewSize(width, height);
+      updateCanvasPresentation(width, height);
+    }
+
+    function updateCurrentColorIndicator() {
+      const color = state.palette[state.currentColorIndex] || state.palette[0];
+      elements.currentColorDot.style.backgroundColor = colorToCss(color);
+      elements.currentColorLabel.textContent = `当前画笔：颜色 ${state.currentColorIndex}`;
+    }
+
+    function updateActiveColorRow() {
+      const rows = elements.colorList.querySelectorAll(".color-row");
+      rows.forEach((row, index) => {
+        row.classList.toggle("active", index === state.currentColorIndex);
+      });
+    }
+
+    function createColorRow(index, color) {
+      const row = document.createElement("div");
+      row.className = "color-row";
+      row.innerHTML = `
+        <label>
+          <input type="radio" name="colorPick" value="${index}" ${index === 0 ? "checked" : ""} />
+          颜色 ${index}
+        </label>
+        <label class="color-channel">
+          R
+          <input id="color-r-${index}" type="number" min="0" max="255" value="${color.r}" />
+        </label>
+        <label class="color-channel">
+          G
+          <input id="color-g-${index}" type="number" min="0" max="255" value="${color.g}" />
+        </label>
+        <label class="color-channel">
+          B
+          <input id="color-b-${index}" type="number" min="0" max="255" value="${color.b}" />
+        </label>
+        <div class="color-preview" id="color-preview-${index}"></div>
+      `;
+      return row;
+    }
+
+    function buildColorUI() {
+      const fragment = document.createDocumentFragment();
+
+      for (let i = 0; i < PALETTE_SIZE; i++) {
+        fragment.appendChild(createColorRow(i, state.palette[i]));
+      }
+
+      elements.colorList.innerHTML = "";
+      elements.colorList.appendChild(fragment);
+
+      for (let i = 0; i < PALETTE_SIZE; i++) {
+        paletteInputs[i] = {
+          r: document.getElementById(`color-r-${i}`),
+          g: document.getElementById(`color-g-${i}`),
+          b: document.getElementById(`color-b-${i}`)
+        };
+        palettePreviews[i] = document.getElementById(`color-preview-${i}`);
+      }
+
+      elements.colorList.addEventListener("change", (event) => {
+        const target = event.target;
+        if (target.name === "colorPick") {
+          state.currentColorIndex = Number.parseInt(target.value, 10) || 0;
+          updateCurrentColorIndicator();
+          updateActiveColorRow();
+        } else if (target.type === "number") {
+          updateColorPreviewAndGrid();
+        }
+      });
+
+      elements.colorList.addEventListener("input", (event) => {
+        if (event.target.type === "number") {
+          updateColorPreviewAndGrid();
+        }
+      });
+
+      elements.colorList.addEventListener("click", (event) => {
+        const row = event.target.closest(".color-row");
+        if (!row) return;
+        const radio = row.querySelector('input[name="colorPick"]');
+        if (!radio) return;
+        if (!radio.checked) {
+          radio.checked = true;
+          state.currentColorIndex = Number.parseInt(radio.value, 10) || 0;
+          updateCurrentColorIndicator();
+          updateActiveColorRow();
+        }
+      });
+
+      updateColorPreviewAndGrid();
+      updateActiveColorRow();
+    }
+
+    function createGridCell(index) {
+      const cell = document.createElement("div");
+      cell.className = "pixel-cell";
+      cell.dataset.index = String(index);
+      cell.dataset.colorIndex = "0";
+      cell.style.backgroundColor = colorToCss(state.palette[0]);
+      return cell;
+    }
+
+    function buildGrid() {
+      const cellCount = state.gridRows * state.gridCols;
+      state.gridPattern = new Uint8Array(cellCount);
+      gridCells = new Array(cellCount);
+
+      elements.gridContainer.style.gridTemplateColumns = `repeat(${state.gridCols}, 20px)`;
+
+      const fragment = document.createDocumentFragment();
+      for (let i = 0; i < cellCount; i++) {
+        const cell = createGridCell(i);
+        gridCells[i] = cell;
+        fragment.appendChild(cell);
+      }
+
+      elements.gridContainer.innerHTML = "";
+      elements.gridContainer.appendChild(fragment);
+      updatePreviewStats();
+    }
+
+    function paintCell(cellIndex, colorIndex) {
+      state.gridPattern[cellIndex] = colorIndex;
+      const cell = gridCells[cellIndex];
+      if (!cell) return;
+      cell.dataset.colorIndex = String(colorIndex);
+      cell.style.backgroundColor = colorToCss(state.palette[colorIndex] || state.palette[0]);
+    }
+
+    function clearGrid() {
+      state.gridPattern.fill(0);
+      const baseColor = colorToCss(state.palette[0]);
+      for (let i = 0; i < gridCells.length; i++) {
+        gridCells[i].dataset.colorIndex = "0";
+        gridCells[i].style.backgroundColor = baseColor;
+      }
+    }
+
+    function canvasToBMP(canvas) {
+      const width = canvas.width;
+      const height = canvas.height;
+      const ctx = canvas.getContext("2d");
+      const imageData = ctx.getImageData(0, 0, width, height);
+      const data = imageData.data;
+
+      const bytesPerPixel = 3;
+      const rowSize = Math.floor((bytesPerPixel * width + 3) / 4) * 4;
+      const pixelArraySize = rowSize * height;
+      const fileSize = 54 + pixelArraySize;
+      const buffer = new ArrayBuffer(fileSize);
+      const view = new DataView(buffer);
+
+      let pointer = 0;
+      view.setUint8(pointer, 0x42);
+      view.setUint8(pointer + 1, 0x4d);
+      pointer += 2;
+      view.setUint32(pointer, fileSize, true);
+      pointer += 4;
+      view.setUint16(pointer, 0, true);
+      pointer += 2;
+      view.setUint16(pointer, 0, true);
+      pointer += 2;
+      view.setUint32(pointer, 54, true);
+      pointer += 4;
+
+      view.setUint32(pointer, 40, true);
+      pointer += 4;
+      view.setInt32(pointer, width, true);
+      pointer += 4;
+      view.setInt32(pointer, height, true);
+      pointer += 4;
+      view.setUint16(pointer, 1, true);
+      pointer += 2;
+      view.setUint16(pointer, 24, true);
+      pointer += 2;
+      view.setUint32(pointer, 0, true);
+      pointer += 4;
+      view.setUint32(pointer, pixelArraySize, true);
+      pointer += 4;
+      view.setInt32(pointer, 2835, true);
+      pointer += 4;
+      view.setInt32(pointer, 2835, true);
+      pointer += 4;
+      view.setUint32(pointer, 0, true);
+      pointer += 4;
+      view.setUint32(pointer, 0, true);
+
+      let offset = 54;
+      const padding = rowSize - width * 3;
+      for (let y = height - 1; y >= 0; y--) {
+        for (let x = 0; x < width; x++) {
+          const source = (y * width + x) * 4;
+          view.setUint8(offset, data[source + 2]);
+          view.setUint8(offset + 1, data[source + 1]);
+          view.setUint8(offset + 2, data[source]);
+          offset += 3;
+        }
+        offset += padding;
+      }
+
+      return new Blob([buffer], { type: "image/bmp" });
+    }
+
+    function getSelectedFormat() {
+      const selected = document.querySelector('input[name="outFormat"]:checked');
+      return selected ? selected.value : "png";
+    }
+
+    function revokeObjectUrl() {
+      if (state.objectUrl) {
+        URL.revokeObjectURL(state.objectUrl);
+        state.objectUrl = "";
+      }
+    }
+
+    function generateImage() {
+      const width = Number.parseInt(elements.outWidth.value, 10);
+      const height = Number.parseInt(elements.outHeight.value, 10);
+
+      if (!width || !height || width <= 0 || height <= 0) {
+        alert("请设置正确的输出宽高（正整数）。");
+        return;
+      }
+
+      const canvas = elements.canvas;
+      const ctx = canvas.getContext("2d");
+      canvas.width = width;
+      canvas.height = height;
+
+      const imageData = ctx.createImageData(width, height);
+      const data = imageData.data;
+      const { gridRows, gridCols, gridPattern, palette } = state;
+
+      for (let y = 0; y < height; y++) {
+        const rowOffset = (y * width) * 4;
+        const patternRowOffset = (y % gridRows) * gridCols;
+
+        for (let x = 0; x < width; x++) {
+          const colorIndex = gridPattern[patternRowOffset + (x % gridCols)];
+          const color = palette[colorIndex] || palette[0];
+          const offset = rowOffset + x * 4;
+          data[offset] = color.r;
+          data[offset + 1] = color.g;
+          data[offset + 2] = color.b;
+          data[offset + 3] = 255;
+        }
+      }
+
+      ctx.putImageData(imageData, 0, 0);
+
+      revokeObjectUrl();
+
+      const format = getSelectedFormat();
+      if (format === "png") {
+        elements.downloadLink.href = canvas.toDataURL("image/png");
+        elements.downloadLink.download = "pattern.png";
+      } else {
+        state.objectUrl = URL.createObjectURL(canvasToBMP(canvas));
+        elements.downloadLink.href = state.objectUrl;
+        elements.downloadLink.download = "pattern.bmp";
+      }
+
+      elements.downloadLink.textContent = `下载 ${format.toUpperCase()} 图片`;
+      elements.downloadLink.style.display = "inline-flex";
+      showPreviewCanvas(width, height);
+    }
+
+    function applyGridSize() {
+      const rows = Number.parseInt(elements.gridRowsInput.value, 10);
+      const cols = Number.parseInt(elements.gridColsInput.value, 10);
+
+      if (!rows || !cols || rows <= 0 || cols <= 0 || rows > 64 || cols > 64) {
+        alert("行、列请输入 1~64 之间的整数。");
+        return;
+      }
+
+      state.gridRows = rows;
+      state.gridCols = cols;
+      buildGrid();
+    }
+
+    function bindEvents() {
+      elements.applyGridSizeBtn.addEventListener("click", applyGridSize);
+      elements.clearGridBtn.addEventListener("click", clearGrid);
+      elements.generateBtn.addEventListener("click", generateImage);
+
+      elements.gridContainer.addEventListener("click", (event) => {
+        const cell = event.target.closest(".pixel-cell");
+        if (!cell) return;
+
+        const cellIndex = Number.parseInt(cell.dataset.index, 10);
+        if (Number.isNaN(cellIndex)) return;
+
+        paintCell(cellIndex, state.currentColorIndex);
+      });
+
+      window.addEventListener("beforeunload", revokeObjectUrl);
+      window.addEventListener("resize", () => {
+        if (elements.canvas.width > 0 && elements.canvas.height > 0 && elements.canvas.style.display !== "none") {
+          updateCanvasPresentation(elements.canvas.width, elements.canvas.height);
+        }
+      });
+    }
+
+    function init() {
+      buildColorUI();
+      buildGrid();
+      updateCurrentColorIndicator();
+      showPreviewPlaceholder();
+      bindEvents();
+    }
+
+    window.addEventListener("DOMContentLoaded", init);
+  </script>
+</body>
+</html>
