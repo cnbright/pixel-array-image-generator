@@ -6,6 +6,9 @@
 
 一个轻量的单文件 HTML 工具，用于绘制小型像素阵列图案，并将其按平铺方式导出为 PNG 或 BMP 图片。
 
+在线部署地址：
+[https://cnbright.github.io/pixel-array-image-generator/](https://cnbright.github.io/pixel-array-image-generator/)
+
 ### 功能
 
 - 通过可点击网格绘制基础像素图案
@@ -35,6 +38,9 @@
 ## English
 
 A lightweight single-file HTML tool for drawing small pixel-array patterns and exporting them as tiled PNG or BMP images.
+
+Live demo:
+[https://cnbright.github.io/pixel-array-image-generator/](https://cnbright.github.io/pixel-array-image-generator/)
 
 ### Features
 
